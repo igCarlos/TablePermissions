@@ -111,7 +111,11 @@ Si crea nuevas tablas o modelos puede sincronizar nuevamente los permisos.
 ```bash
 php artisan table-permissions:sync
 ```
-
+---
+# Restaurar permisos para rol administrador en caso de perdida
+```bash
+php artisan table-permissions:restore
+```
 ---
 
 # Configuración
