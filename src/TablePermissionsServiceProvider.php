@@ -2,6 +2,7 @@
 
 namespace Carliban\TablePermissions;
 
+use Carliban\TablePermissions\Commands\RestoreAdministratorPermissionsCommand;
 use Carliban\TablePermissions\Commands\InstallTablePermissionsCommand;
 use Carliban\TablePermissions\Commands\SyncTablePermissionsCommand;
 use Carliban\TablePermissions\Services\PermissionSynchronizer;
@@ -23,6 +24,11 @@ class TablePermissionsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+         /*
+        |--------------------------------------------------------------------------
+        | Cargar vistas
+        |--------------------------------------------------------------------------
+        */
         $this->loadViewsFrom(
             __DIR__.'/../resources/views',
             'table-permissions'
@@ -39,10 +45,22 @@ class TablePermissionsServiceProvider extends ServiceProvider
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Publicar configuración
+        |--------------------------------------------------------------------------
+        */
+
         $this->publishes([
             __DIR__.'/../config/table-permissions.php'
                 => config_path('table-permissions.php'),
         ], 'table-permissions-config');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Publicar vistas
+        |--------------------------------------------------------------------------
+        */
 
         $this->publishes([
             __DIR__.'/../resources/views'
@@ -51,10 +69,17 @@ class TablePermissionsServiceProvider extends ServiceProvider
                 ),
         ], 'table-permissions-views');
 
+         /*
+        |--------------------------------------------------------------------------
+        | Registrar comandos
+        |--------------------------------------------------------------------------
+        */
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 InstallTablePermissionsCommand::class,
                 SyncTablePermissionsCommand::class,
+                RestoreAdministratorPermissionsCommand::class,
             ]);
         }
     }

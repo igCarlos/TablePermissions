@@ -92,6 +92,11 @@
             color: #991b1b;
         }
 
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         .error ul {
             margin: 8px 0 0;
             padding-left: 20px;
@@ -156,7 +161,7 @@
         }
 
         .checkbox-cell {
-            width: 90px;
+            width: 130px;
             text-align: center;
         }
 
@@ -166,6 +171,19 @@
             margin: 0;
             accent-color: #2563eb;
             cursor: pointer;
+        }
+
+        .user-checkbox:disabled {
+            cursor: not-allowed;
+            opacity: .6;
+        }
+
+        .protected-message {
+            margin-top: 6px;
+            color: #b45309;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
         }
 
         .user-name {
@@ -195,6 +213,11 @@
         .badge-current {
             background: #dbeafe;
             color: #1d4ed8;
+        }
+
+        .badge-protected {
+            background: #fef3c7;
+            color: #92400e;
         }
 
         .panel-footer {
@@ -270,6 +293,44 @@
 
 <body>
 
+@php
+    /*
+    |--------------------------------------------------------------------------
+    | Configuración del rol administrador
+    |--------------------------------------------------------------------------
+    */
+
+    $administratorRole = config(
+        'table-permissions.administrator_role',
+        'administrador'
+    );
+
+    $administratorGuard = config(
+        'table-permissions.guard',
+        'web'
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verificar si el rol actual es el administrador
+    |--------------------------------------------------------------------------
+    */
+
+    $isAdministratorRole =
+        $role->name === $administratorRole
+        && $role->guard_name === $administratorGuard;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cantidad total de administradores
+    |--------------------------------------------------------------------------
+    */
+
+    $administratorCount = $isAdministratorRole
+        ? $role->users()->count()
+        : 0;
+@endphp
+
 <div class="container">
 
     <div class="header">
@@ -331,6 +392,16 @@
         </div>
     @endif
 
+    @if(
+        $isAdministratorRole
+        && $administratorCount === 1
+    )
+        <div class="alert warning">
+            El sistema tiene un solo administrador.
+            Este usuario está protegido y no puede perder el rol.
+        </div>
+    @endif
+
     <form
         action="{{ route(
             'table-permissions.roles.users.update',
@@ -389,6 +460,31 @@
 
                         @forelse($users as $user)
 
+                            @php
+                                /*
+                                |----------------------------------------------
+                                | Verificar si el usuario tiene el rol actual
+                                |----------------------------------------------
+                                */
+
+                                $userHasCurrentRole = in_array(
+                                    (string) $user->getKey(),
+                                    $assignedUserIds,
+                                    true
+                                );
+
+                                /*
+                                |----------------------------------------------
+                                | Proteger al último administrador
+                                |----------------------------------------------
+                                */
+
+                                $isLastAdministrator =
+                                    $isAdministratorRole
+                                    && $administratorCount === 1
+                                    && $userHasCurrentRole;
+                            @endphp
+
                             <tr>
 
                                 <td class="checkbox-cell">
@@ -399,14 +495,32 @@
                                         value="{{ $user->getKey() }}"
                                         class="user-checkbox"
 
-                                        @checked(
-                                            in_array(
-                                                (string) $user->getKey(),
-                                                $assignedUserIds,
-                                                true
-                                            )
-                                        )
+                                        @checked($userHasCurrentRole)
+
+                                        @disabled($isLastAdministrator)
                                     >
+
+                                    @if($isLastAdministrator)
+
+                                        {{--
+                                            Los checkbox deshabilitados no
+                                            se envían en la petición.
+
+                                            Este campo hidden conserva al
+                                            usuario como administrador.
+                                        --}}
+
+                                        <input
+                                            type="hidden"
+                                            name="users[]"
+                                            value="{{ $user->getKey() }}"
+                                        >
+
+                                        <div class="protected-message">
+                                            Último administrador
+                                        </div>
+
+                                    @endif
 
                                 </td>
 
@@ -436,9 +550,18 @@
                                             <span
                                                 class="badge
                                                     @if(
-                                                        $userRole === $role->name
+                                                        $userRole
+                                                        === $role->name
                                                     )
                                                         badge-current
+                                                    @endif
+
+                                                    @if(
+                                                        $isLastAdministrator
+                                                        && $userRole
+                                                        === $role->name
+                                                    )
+                                                        badge-protected
                                                     @endif
                                                 "
                                             >

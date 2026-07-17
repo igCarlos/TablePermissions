@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class SyncTablePermissionsCommand extends Command
 {
-    protected $signature = 'permissions:sync-tables';
+    protected $signature = 'table-permissions:sync-tables';
 
     protected $description =
         'Detecta las tablas y crea sus permisos faltantes';

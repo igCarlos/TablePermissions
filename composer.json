@@ -1,6 +1,5 @@
 {
     "name": "carliban/laravel-table-permissions",
-    "version": "1.0.0",
     "description": "Generador automático de roles y permisos para Laravel usando Spatie Permission",
     "type": "library",
     "license": "MIT",
@@ -12,16 +11,30 @@
         "illuminate/view": "^12.0",
         "spatie/laravel-permission": "^6.0"
     },
+
+    "homepage": "https://github.com/igCarlos/TablePermissions",
+    "authors": [
+        {
+            "name": "Carlos Ivan",
+            "homepage": "https://github.com/igCarlos",
+            "role": "Developer"
+        }
+    ],
+
     "autoload": {
         "psr-4": {
             "Carliban\\TablePermissions\\": "src/"
         }
     },
+
     "extra": {
         "laravel": {
             "providers": [
                 "Carliban\\TablePermissions\\TablePermissionsServiceProvider"
             ]
         }
-    }
+    },
+
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

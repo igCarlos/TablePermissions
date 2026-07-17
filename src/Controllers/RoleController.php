@@ -129,58 +129,116 @@ class RoleController extends Controller
      * Actualizar nombre y permisos.
      */
     public function update(
-        Request $request,
-        Role $role
+    Request $request,
+    Role $role
     ): RedirectResponse {
         $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('roles', 'name')
-                    ->where(
-                        'guard_name',
-                        $role->guard_name
-                    )
-                    ->ignore($role->id),
-            ],
-
-            'permissions' => [
+            'users' => [
                 'nullable',
                 'array',
             ],
 
-            'permissions.*' => [
+            'users.*' => [
                 'integer',
-                'exists:permissions,id',
+                'exists:users,id',
             ],
         ]);
 
-        $role->update([
-            'name' => $validated['name'],
-        ]);
+        $selectedUserIds = collect(
+            $validated['users'] ?? []
+        )
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
 
-        $permissions = Permission::query()
-            ->where(
-                'guard_name',
-                $role->guard_name
-            )
-            ->whereIn(
-                'id',
-                $validated['permissions'] ?? []
-            )
-            ->get();
+        $administratorRole = config(
+            'table-permissions.administrator_role',
+            'administrador'
+        );
 
-        $role->syncPermissions($permissions);
+        $guard = config(
+            'table-permissions.guard',
+            'web'
+        );
+
+        $isAdministratorRole =
+            $role->name === $administratorRole
+            && $role->guard_name === $guard;
+
+        /*
+        |--------------------------------------------------------------------------
+        | Proteger el último administrador
+        |--------------------------------------------------------------------------
+        |
+        | Si se está modificando el rol administrador, debe quedar por lo menos
+        | un usuario asignado a dicho rol.
+        |
+        */
+
+        if (
+            $isAdministratorRole
+            && $selectedUserIds->isEmpty()
+        ) {
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'No puede quitar el rol administrador a todos los usuarios. Debe existir al menos un administrador.'
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Sincronizar usuarios del rol
+        |--------------------------------------------------------------------------
+        */
+
+        $currentUserIds = $role
+            ->users()
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id);
+
+        $usersToRemove = $currentUserIds->diff(
+            $selectedUserIds
+        );
+
+        $usersToAdd = $selectedUserIds->diff(
+            $currentUserIds
+        );
+
+        if ($usersToRemove->isNotEmpty()) {
+            $role
+                ->users()
+                ->whereIn('users.id', $usersToRemove)
+                ->get()
+                ->each(
+                    fn ($user) => $user->removeRole($role)
+                );
+        }
+
+        if ($usersToAdd->isNotEmpty()) {
+            $role
+                ->users()
+                ->getModel()
+                ->newQuery()
+                ->whereIn(
+                    $role->users()->getModel()->getKeyName(),
+                    $usersToAdd
+                )
+                ->get()
+                ->each(
+                    fn ($user) => $user->assignRole($role)
+                );
+        }
 
         return redirect()
             ->route(
-                'table-permissions.roles.show',
+                'table-permissions.roles.users.index',
                 $role
             )
             ->with(
                 'success',
-                'Rol y permisos actualizados.'
+                'Usuarios del rol actualizados correctamente.'
             );
     }
 
