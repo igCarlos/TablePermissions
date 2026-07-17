@@ -84,6 +84,7 @@ php artisan migrate
 
 ---
 
+## Primero Registra un Usuario
 # Instalación automática
 
 El paquete incluye un instalador.
