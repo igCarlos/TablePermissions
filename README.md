@@ -380,7 +380,7 @@ Las contribuciones son bienvenidas.
 
 # Changelog
 
-## v1.0.0
+## v1.0.2
 
 * Administración de Roles.
 * Administración de Permisos.
