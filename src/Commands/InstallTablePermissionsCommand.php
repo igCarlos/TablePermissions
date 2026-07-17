@@ -4,6 +4,7 @@ namespace Carliban\TablePermissions\Commands;
 
 use Carliban\TablePermissions\Services\PermissionSynchronizer;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
@@ -86,22 +87,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 4. Publicar migraciones propias del paquete
-            |--------------------------------------------------------------------------
-            */
-
-            $this->components->task(
-                'Publicando migraciones de Table Permissions',
-                function (): bool {
-                    return $this->publishTag(
-                        'table-permissions-migrations'
-                    );
-                }
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | 5. Limpiar caché de configuración
+            | 4. Limpiar caché de configuración
             |--------------------------------------------------------------------------
             */
 
@@ -116,7 +102,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 6. Ejecutar todas las migraciones
+            | 5. Ejecutar migraciones
             |--------------------------------------------------------------------------
             */
 
@@ -155,7 +141,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 7. Verificar tablas de Spatie
+            | 6. Verificar tablas de Spatie
             |--------------------------------------------------------------------------
             */
 
@@ -174,10 +160,6 @@ class InstallTablePermissionsCommand extends Command
                     "La tabla [{$rolesTable}] no existe."
                 );
 
-                $this->components->warn(
-                    'Las migraciones de Spatie no fueron publicadas o ejecutadas.'
-                );
-
                 return self::FAILURE;
             }
 
@@ -186,16 +168,12 @@ class InstallTablePermissionsCommand extends Command
                     "La tabla [{$permissionsTable}] no existe."
                 );
 
-                $this->components->warn(
-                    'Las migraciones de Spatie no fueron publicadas o ejecutadas.'
-                );
-
                 return self::FAILURE;
             }
 
             /*
             |--------------------------------------------------------------------------
-            | 8. Limpiar caché de permisos
+            | 7. Limpiar caché de permisos
             |--------------------------------------------------------------------------
             */
 
@@ -204,7 +182,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 9. Crear rol administrador
+            | 8. Crear rol administrador
             |--------------------------------------------------------------------------
             */
 
@@ -238,7 +216,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 10. Sincronizar permisos
+            | 9. Sincronizar permisos
             |--------------------------------------------------------------------------
             */
 
@@ -259,7 +237,7 @@ class InstallTablePermissionsCommand extends Command
 
             /*
             |--------------------------------------------------------------------------
-            | 11. Asignar todos los permisos al administrador
+            | 10. Obtener permisos
             |--------------------------------------------------------------------------
             */
 
@@ -278,6 +256,12 @@ class InstallTablePermissionsCommand extends Command
                     )
                     ->get();
 
+            /*
+            |--------------------------------------------------------------------------
+            | 11. Asignar permisos al administrador
+            |--------------------------------------------------------------------------
+            */
+
             $this->components->task(
                 'Asignando permisos al administrador',
                 function () use (
@@ -292,6 +276,74 @@ class InstallTablePermissionsCommand extends Command
                 }
             );
 
+            /*
+            |--------------------------------------------------------------------------
+            | 12. Asignar rol al primer usuario
+            |--------------------------------------------------------------------------
+            */
+
+            $userModel = config(
+                'auth.providers.users.model'
+            );
+
+            $administratorUser = null;
+
+            if (
+                is_string($userModel)
+                && class_exists($userModel)
+                && is_subclass_of(
+                    $userModel,
+                    Model::class
+                )
+            ) {
+                $userInstance =
+                    new $userModel();
+
+                $administratorUser =
+                    $userModel::query()
+                        ->orderBy(
+                            $userInstance->getKeyName()
+                        )
+                        ->first();
+            }
+
+            if ($administratorUser) {
+                if (! method_exists(
+                    $administratorUser,
+                    'assignRole'
+                )) {
+                    $this->components->warn(
+                        'El modelo User no utiliza el trait HasRoles.'
+                    );
+                } else {
+                    $this->components->task(
+                        'Asignando rol al primer usuario',
+                        function () use (
+                            $administratorUser,
+                            $role
+                        ): bool {
+                            if (
+                                ! $administratorUser
+                                    ->hasRole(
+                                        $role->name
+                                    )
+                            ) {
+                                $administratorUser
+                                    ->assignRole(
+                                        $role
+                                    );
+                            }
+
+                            return true;
+                        }
+                    );
+                }
+            } else {
+                $this->components->warn(
+                    'No existe ningún usuario para asignarle el rol administrador.'
+                );
+            }
+
             app(PermissionRegistrar::class)
                 ->forgetCachedPermissions();
 
@@ -305,6 +357,16 @@ class InstallTablePermissionsCommand extends Command
                 isset($result['created'])
                     ? $result['created']->count()
                     : 0;
+
+            $userResult =
+                $administratorUser
+                    ? (
+                        $administratorUser->email
+                        ?? 'ID '
+                            . $administratorUser
+                                ->getKey()
+                    )
+                    : 'No encontrado';
 
             $this->newLine();
 
@@ -339,6 +401,10 @@ class InstallTablePermissionsCommand extends Command
                         $role->guard_name,
                     ],
                     [
+                        'Usuario administrador',
+                        $userResult,
+                    ],
+                    [
                         'Permisos nuevos',
                         $createdCount,
                     ],
@@ -347,10 +413,6 @@ class InstallTablePermissionsCommand extends Command
                         $permissions->count(),
                     ],
                 ]
-            );
-
-            $this->components->warn(
-                'Recuerda agregar el trait HasRoles al modelo User.'
             );
 
             return self::SUCCESS;

@@ -108,7 +108,7 @@ class RestoreAdministratorPermissionsCommand extends Command
                     'Generando permisos faltantes',
                     function (): bool {
                         return $this->callSilent(
-                            'permissions:sync-tables'
+                            'table-permissions:sync-tables'
                         ) === self::SUCCESS;
                     }
                 );
@@ -143,7 +143,7 @@ class RestoreAdministratorPermissionsCommand extends Command
 
                 $this->line(
                     'Verifica que el comando '
-                    . 'table-permissions:sync esté generando los permisos.'
+                    . 'table-permissions:sync-tables esté generando los permisos.'
                 );
 
                 return self::FAILURE;
