@@ -110,7 +110,7 @@ Este comando realiza automáticamente:
 Si crea nuevas tablas o modelos puede sincronizar nuevamente los permisos.
 
 ```bash
-php artisan table-permissions:sync
+php artisan table-permissions:sync-table
 ```
 ---
 # Restaurar permisos para rol administrador en caso de perdida
